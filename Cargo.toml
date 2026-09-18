@@ -1,0 +1,52 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/app",
+    "crates/application",
+    "crates/browser",
+    "crates/config",
+    "crates/storage",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.98"
+
+[workspace.dependencies]
+anyhow = "1"
+atomic-write-file = "0.3.1"
+config = { version = "0.15.25", default-features = false, features = ["toml"] }
+crossbeam-channel = "0.5"
+directories = "6"
+gpui-kit = "0.6.1"
+keyring = "4.2.0"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+rust-i18n = "4.2"
+secrecy = "0.10.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+thiserror = "2"
+toml = "1.1.6"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+ts-rs = "12.0.1"
+zeroize = "1.9"
+
+[profile.dev]
+codegen-units = 16
+debug = "limited"
+split-debuginfo = "unpacked"
+
+[profile.dev.package]
+gpui-kit = { opt-level = 3 }
+gpui-kit-assets = { opt-level = 3 }
+gpui-component = { opt-level = 3 }
+gpui-pre = { opt-level = 3 }
+gpui-pre-macros = { opt-level = 3 }
+gpui-pre-platform = { opt-level = 3 }
+rustybuzz = { opt-level = 3 }
+taffy = { opt-level = 3 }
+ttf-parser = { opt-level = 3 }

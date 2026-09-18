@@ -1,0 +1,21 @@
+[package]
+name = "jobless-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "jobless"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+gpui-kit.workspace = true
+jobless-application = { path = "../application" }
+jobless-config = { path = "../config" }
+jobless-storage = { path = "../storage" }
+rust-i18n.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

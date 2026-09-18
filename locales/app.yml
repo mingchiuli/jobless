@@ -1,0 +1,109 @@
+_version: 2
+
+app:
+  subtitle:
+    zh-CN: 自动化工作台
+    en: Automation workbench
+  navigation:
+    zh-CN: 导航
+    en: Navigation
+  version:
+    zh-CN: 版本 %{version}
+    en: Version %{version}
+
+common:
+  empty:
+    zh-CN: 该模块将在后续阶段实现
+    en: This module will be implemented in a later phase
+
+page:
+  accounts:
+    zh-CN: 账号
+    en: Accounts
+  tasks:
+    zh-CN: 任务
+    en: Tasks
+  browser:
+    zh-CN: 浏览器
+    en: Browser
+  history:
+    zh-CN: 历史
+    en: History
+  settings:
+    zh-CN: 设置
+    en: Settings
+
+runtime:
+  idle:
+    zh-CN: 运行时未启动
+    en: Runtime is stopped
+  starting:
+    zh-CN: 正在启动运行时
+    en: Starting runtime
+  ready:
+    zh-CN: 运行时已就绪
+    en: Runtime is ready
+  stopping:
+    zh-CN: 正在停止运行时
+    en: Stopping runtime
+  status:
+    stopped:
+      zh-CN: 已停止
+      en: Stopped
+    starting:
+      zh-CN: 启动中
+      en: Starting
+    running:
+      zh-CN: 运行中
+      en: Running
+    stopping:
+      zh-CN: 停止中
+      en: Stopping
+    failed:
+      zh-CN: 错误
+      en: Failed
+
+browser:
+  start_runtime:
+    zh-CN: 启动运行时
+    en: Start runtime
+  open_test_page:
+    zh-CN: 打开测试页
+    en: Open test page
+  close_browser:
+    zh-CN: 关闭浏览器
+    en: Close browser
+  stop_runtime:
+    zh-CN: 停止运行时
+    en: Stop runtime
+  paths:
+    zh-CN: 路径
+    en: Paths
+  opening:
+    zh-CN: 正在打开浏览器
+    en: Opening browser
+  opened:
+    zh-CN: 浏览器已打开
+    en: Browser is open
+  closing:
+    zh-CN: 正在关闭浏览器
+    en: Closing browser
+  closed:
+    zh-CN: 浏览器已关闭
+    en: Browser is closed
+
+settings:
+  storage_unavailable:
+    zh-CN: SQLite 不可用
+    en: SQLite unavailable
+
+theme:
+  system:
+    zh-CN: 外观：跟随系统
+    en: "Theme: System"
+  light:
+    zh-CN: 外观：浅色
+    en: "Theme: Light"
+  dark:
+    zh-CN: 外观：深色
+    en: "Theme: Dark"

@@ -1,0 +1,28 @@
+# Jobless application configuration.
+# This file is copied to the platform configuration directory on first launch.
+
+[app]
+locale = "zh-CN"
+
+[storage]
+# Leave unset to use the platform data directory.
+# data_dir = "/absolute/path/to/jobless-data"
+
+[runtime]
+# Leave unset to auto-discover the bundled runtime and development checkout.
+# dir = "/absolute/path/to/runtime"
+# bin = "/absolute/path/to/bun"
+# worker_entry = "/absolute/path/to/browser-worker/src/main.ts"
+
+[browser]
+engine = "patchright"
+headless = false
+smoke_url = "about:blank"
+
+[rpc]
+request_timeout_ms = 10000
+shutdown_timeout_ms = 3000
+max_frame_bytes = 4194304
+
+[logging]
+level = "info"

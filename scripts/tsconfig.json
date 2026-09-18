@@ -1,0 +1,17 @@
+{
+  "extends": "../browser-worker/tsconfig.json",
+  "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "typeRoots": [
+      "../browser-worker/node_modules/@types"
+    ],
+    "types": [
+      "bun"
+    ],
+    "noEmit": true
+  },
+  "include": [
+    "./*.ts"
+  ]
+}
