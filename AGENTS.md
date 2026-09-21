@@ -39,12 +39,13 @@ Layer 2  Application services
                          │
                          ▼
 Layer 1  Rust infrastructure adapters
-         crates/browser (worker process + RPC + browser-session API)
+         crates/browser (worker process + RPC + session/page API)
          crates/storage (SQLite connection and persistence boundary)
                          │
                          ▼
 Layer 0  Foundation
          crates/config (configuration, paths, secrets contract)
+         crates/platform (platform ids and catalog metadata)
 
 Out-of-process runtime sidecar
          browser-worker (Bun + TypeScript)
@@ -64,7 +65,7 @@ implicit filesystem coupling.
 
 ### Layer 0: Foundation
 
-`crates/config` is the only Layer 0 crate.
+`crates/config` and `crates/platform` are the Layer 0 crates.
 
 It owns:
 
@@ -83,6 +84,14 @@ It must not know about:
 
 No other Jobless crate may define a second configuration model or duplicate
 platform path rules.
+
+`crates/platform` owns:
+
+- `PlatformId` validation and serialization.
+- `PlatformConfig` and ordered `PlatformCatalog`.
+- The reserved compatibility platform used by current smoke/UI code.
+
+It does not own selectors, navigation workflows, or employer business logic.
 
 ### Layer 1: Rust Infrastructure Adapters
 
@@ -198,10 +207,11 @@ import delivery code.
 
 | From | May depend on | Must not depend on |
 | --- | --- | --- |
-| `jobless-config` | Third-party foundation libraries | `storage`, `browser`, `app`, GPUI, worker internals |
+| `jobless-platform` | Serde and validation libraries | `config`, `browser`, `app`, GPUI, worker internals |
+| `jobless-config` | `jobless-platform`, foundation libraries | `storage`, `browser`, `app`, GPUI, worker internals |
 | `jobless-storage` | `jobless-config`, SQLite libraries | `browser`, `app`, GPUI, worker internals |
-| `jobless-browser` | `jobless-config`, RPC/serialization libraries | `storage`, `app`, GPUI, TypeScript modules |
-| `jobless-application` | `jobless-config`, `jobless-browser`, `jobless-storage` when needed | GPUI, `jobless-app`, worker internals |
+| `jobless-browser` | `jobless-config`, `jobless-platform`, RPC/serialization libraries | `storage`, `app`, GPUI, TypeScript modules |
+| `jobless-application` | `jobless-config`, `jobless-platform`, `jobless-browser`, `jobless-storage` when needed | GPUI, `jobless-app`, worker internals |
 | `jobless-app` | `jobless-config`, `jobless-storage`, `jobless-application`, future feature crates, GPUI Kit | Patchright directly, raw SQL, sibling feature internals |
 | Future feature crate | Stable Layer 0/1/2 APIs, GPUI Kit | `jobless-app`, another feature's private modules |
 | `browser-worker` | Generated protocol, `vscode-jsonrpc`, Bun/Node built-ins, `BrowserEngine` | Rust crates, application business rules, SQLite |
@@ -319,6 +329,12 @@ relevant `Cargo.toml` files before adding a dependency.
   protocol-only; all logs go to stderr.
 - Add methods in this order: Rust DTO, typed Rust method, regenerated
   TypeScript, typed worker handler, tests, generated-file drift check.
+- A browser session represents one persistent Chromium context. A platform has
+  one main page inside that session; `page.ensure` is lazy and idempotent.
+- Platform IDs are opaque strings at the worker boundary. Validation and
+  metadata belong to `crates/platform` and `crates/config`.
+- Session and page notifications must use typed payloads; never add raw
+  `serde_json::Value` events.
 - Worker requests must be generic browser operations. Employer-specific page
   behaviour belongs in an upper-layer platform feature.
 - Breaking an existing request or response shape requires an explicit
@@ -367,6 +383,7 @@ Use this routing table before creating files:
 | Change | Owner |
 | --- | --- |
 | Config field, precedence, path, or secret contract | `crates/config` |
+| Platform id, metadata, order, and catalog | `crates/platform` |
 | SQLite schema, migration, query, or repository | `crates/storage` |
 | Worker lifecycle, RPC framing, protocol DTO, browser manager API | `crates/browser` |
 | Non-visual use-case orchestration | `crates/application` |

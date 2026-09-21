@@ -16,8 +16,15 @@ try {
 
   const session = await engine.launchPersistent(profileDir, {
     headless: true,
-    url: "about:blank",
   });
+  await session.ensurePage("default", "about:blank");
+  await session.ensurePage("healthcheck", "about:blank");
+  const pageCount = session.listPages().length;
+  if (pageCount < 2) {
+    throw new Error(`expected multiple browser pages, found ${pageCount}`);
+  }
+  await session.activatePage("healthcheck");
+  await session.closePage("healthcheck");
   await session.close();
   process.stdout.write(
     `${JSON.stringify({
@@ -25,6 +32,7 @@ try {
       engine: `${engine.name}@${engine.version}`,
       browser: browser.version,
       revision: browser.revision,
+      page_count: pageCount,
     })}\n`,
   );
 } finally {

@@ -1,3 +1,3 @@
 mod runtime;
 
-pub use runtime::{RuntimeService, RuntimeServiceError};
+pub use runtime::{DriverError, RuntimeService, RuntimeServiceError};

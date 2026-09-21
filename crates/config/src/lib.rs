@@ -7,6 +7,10 @@ pub use config::{
     ConfigError, ConfigSource, ConfigSourceKind, ConfigStore, LoadedConfig, LoggingSection,
     RpcSection, RuntimeSection, StorageSection,
 };
+pub use jobless_platform::{
+    PlatformCatalog, PlatformConfig, PlatformDescriptor, PlatformError, PlatformId,
+    compatibility_platform,
+};
 pub use paths::{AppPaths, BUNDLE_ID};
 pub use secrets::{
     KeyringSecretStore, MemorySecretStore, SecretError, SecretKey, SecretStore, SecretString,

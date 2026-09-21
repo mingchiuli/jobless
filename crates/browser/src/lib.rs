@@ -3,13 +3,16 @@ mod protocol;
 mod transport;
 
 pub use manager::{
-    BrowserError, BrowserManager, BrowserManagerConfig, BrowserSession, RuntimeNotification,
-    RuntimePaths, resolve_runtime_paths,
+    BrowserError, BrowserManager, BrowserManagerConfig, BrowserPage, BrowserSession,
+    RuntimeNotification, RuntimePaths, resolve_runtime_paths,
 };
 pub use protocol::{
-    BrowserCloseParams, BrowserCloseResult, BrowserEngineInfo, BrowserEvent, BrowserEventParams,
-    BrowserInfo, BrowserOpenParams, BrowserOpenResult, ProtocolErrorParams, RpcErrorPayload,
-    RpcMethod, RuntimeHealthParams, RuntimeHealthResult, RuntimeInfo, RuntimeReadyParams,
-    RuntimeShutdownParams, RuntimeShutdownResult, method,
+    BrowserEngineInfo, BrowserInfo, PageActivateParams, PageActivateResult, PageCloseParams,
+    PageCloseResult, PageEnsureParams, PageEnsureResult, PageEvent, PageEventParams, PageId,
+    PageListParams, PageListResult, PageNavigateParams, PageNavigateResult, PageSnapshot,
+    PageState, ProtocolErrorParams, RpcErrorPayload, RpcMethod, RuntimeHealthParams,
+    RuntimeHealthResult, RuntimeInfo, RuntimeReadyParams, RuntimeShutdownParams,
+    RuntimeShutdownResult, SessionCloseParams, SessionCloseResult, SessionEvent,
+    SessionEventParams, SessionId, SessionStartParams, SessionStartResult, method,
 };
 pub use transport::{IncomingNotification, RpcConnection, TransportError};

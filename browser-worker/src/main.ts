@@ -4,8 +4,9 @@ import { parseArgs } from "node:util";
 
 import {
   createWorkerConnection,
-  sendBrowserEvent,
+  sendPageEvent,
   sendRuntimeReady,
+  sendSessionEvent,
   stderrLogger,
 } from "./connection.ts";
 import { PatchrightEngine } from "./patchright-engine.ts";
@@ -38,9 +39,14 @@ let connection: ReturnType<typeof createWorkerConnection> | undefined;
 const service = new WorkerService(engine, {
   profileRoot: resolve(dataDir, "browser-profiles"),
   headless: values.headless === "true",
-  emitEvent(event) {
+  emitSessionEvent(event) {
     if (connection) {
-      sendBrowserEvent(connection, event);
+      sendSessionEvent(connection, event);
+    }
+  },
+  emitPageEvent(event) {
+    if (connection) {
+      sendPageEvent(connection, event);
     }
   },
 });

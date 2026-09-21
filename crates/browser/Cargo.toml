@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 crossbeam-channel.workspace = true
 jobless-config = { path = "../config" }
+jobless-platform = { path = "../platform" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

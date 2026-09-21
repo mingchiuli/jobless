@@ -7,6 +7,7 @@ use gpui_kit::component::{ActiveTheme, Root};
 use gpui_kit::*;
 use jobless_application::RuntimeService;
 use jobless_config::{AppConfig, AppPaths, LoadedConfig};
+use jobless_platform::PlatformId;
 use jobless_storage::Database;
 use theme::ThemePreference;
 
@@ -156,7 +157,7 @@ impl AppView {
         cx.spawn(async move |this, cx| {
             let (runtime, result) = cx
                 .background_spawn(async move {
-                    let result = runtime.open(url, "default");
+                    let result = runtime.ensure_platform_page(&PlatformId::compatibility(), &url);
                     (runtime, result)
                 })
                 .await;
@@ -190,7 +191,7 @@ impl AppView {
         cx.spawn(async move |this, cx| {
             let (runtime, result) = cx
                 .background_spawn(async move {
-                    let result = runtime.close();
+                    let result = runtime.close_session(None);
                     (runtime, result)
                 })
                 .await;

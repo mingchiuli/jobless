@@ -1,9 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Write;
 use std::path::PathBuf;
 
 use atomic_write_file::AtomicWriteFile;
 use config::{Config, Environment, File as ConfigFile, FileFormat, Map};
+use jobless_platform::{PlatformCatalog, PlatformConfig, PlatformId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -24,6 +25,7 @@ pub struct AppConfig {
     pub storage: StorageSection,
     pub runtime: RuntimeSection,
     pub browser: BrowserSection,
+    pub platforms: BTreeMap<PlatformId, PlatformConfig>,
     pub rpc: RpcSection,
     pub logging: LoggingSection,
 }
@@ -62,6 +64,9 @@ impl AppConfig {
                 "browser.smoke_url must not be empty".to_string(),
             ));
         }
+
+        validate_profile_id(&self.browser.profile_id)?;
+        PlatformCatalog::from_config(&self.platforms)?;
 
         if self.logging.level.trim().is_empty() {
             return Err(ConfigError::Validation(
@@ -111,6 +116,7 @@ pub struct BrowserSection {
     pub engine: BrowserEngine,
     pub headless: bool,
     pub smoke_url: String,
+    pub profile_id: String,
 }
 
 impl Default for BrowserSection {
@@ -119,6 +125,7 @@ impl Default for BrowserSection {
             engine: BrowserEngine::Patchright,
             headless: false,
             smoke_url: "about:blank".to_string(),
+            profile_id: "default".to_string(),
         }
     }
 }
@@ -306,6 +313,8 @@ pub enum ConfigError {
     Config(#[from] config::ConfigError),
     #[error("invalid configuration: {0}")]
     Validation(String),
+    #[error(transparent)]
+    Platform(#[from] jobless_platform::PlatformError),
     #[error("failed to serialize configuration: {0}")]
     Serialize(#[from] toml::ser::Error),
 }
@@ -324,6 +333,20 @@ fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<(), ConfigError>
         source,
     })?;
     Ok(())
+}
+
+fn validate_profile_id(profile_id: &str) -> Result<(), ConfigError> {
+    let valid = !profile_id.is_empty()
+        && profile_id.len() <= 64
+        && profile_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'));
+    if valid {
+        return Ok(());
+    }
+    Err(ConfigError::Validation(format!(
+        "browser.profile_id is invalid: `{profile_id}`"
+    )))
 }
 
 #[cfg(test)]
@@ -403,5 +426,20 @@ mod tests {
             loaded.paths.database_file,
             root.path().join("custom-data/db/jobless.sqlite3")
         );
+    }
+
+    #[test]
+    fn validates_platform_catalog() {
+        let mut value = AppConfig::default();
+        value.platforms.insert(
+            PlatformId::new("boss").unwrap(),
+            PlatformConfig {
+                display_name: "BOSS直聘".to_string(),
+                home_url: "https://www.zhipin.com".to_string(),
+                sort_order: 10,
+                ..PlatformConfig::default()
+            },
+        );
+        value.validate().unwrap();
     }
 }

@@ -10,6 +10,7 @@ publish = false
 atomic-write-file.workspace = true
 config.workspace = true
 directories.workspace = true
+jobless-platform = { path = "../platform" }
 keyring.workspace = true
 secrecy.workspace = true
 serde.workspace = true

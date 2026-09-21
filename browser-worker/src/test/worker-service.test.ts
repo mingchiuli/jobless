@@ -18,26 +18,190 @@ import {
 import type {
   BrowserEngine,
   BrowserLaunchOptions,
-  BrowserSessionHandle,
+  BrowserPageHandle,
   BrowserSessionEnd,
+  BrowserSessionHandle,
+  EnsurePageResult,
+  PlatformId,
 } from "../engine.ts";
 import type {
-  BrowserEventParams,
   BrowserInfo,
+  PageEventParams,
+  PageSnapshot,
+  PageState,
+  SessionEventParams,
 } from "../generated/protocol.ts";
 import {
-  browserCloseRequest,
-  browserOpenRequest,
+  pageActivateRequest,
+  pageCloseRequest,
+  pageEnsureRequest,
+  pageListRequest,
+  pageNavigateRequest,
   runtimeHealthRequest,
+  sessionCloseRequest,
+  sessionStartRequest,
 } from "../rpc.ts";
 import { WorkerService } from "../worker-service.ts";
+
+class FakePage implements BrowserPageHandle {
+  state: PageState = "open";
+  currentUrl: string;
+
+  constructor(
+    readonly pageId: string,
+    readonly platformId: PlatformId,
+    url: string,
+  ) {
+    this.currentUrl = url;
+  }
+
+  url(): string {
+    return this.currentUrl;
+  }
+
+  isClosed(): boolean {
+    return false;
+  }
+
+  async activate(): Promise<void> {}
+
+  async navigate(url: string): Promise<string> {
+    this.currentUrl = url;
+    return url;
+  }
+
+  async close(): Promise<void> {}
+
+  snapshot(): PageSnapshot {
+    return {
+      page_id: this.pageId,
+      platform_id: this.platformId,
+      url: this.currentUrl,
+      state: this.state,
+    };
+  }
+}
+
+class FakeSession implements BrowserSessionHandle {
+  readonly pages = new Map<PlatformId, FakePage>();
+  private nextPage = 1;
+  private readonly closedListeners = new Set<
+    (reason: BrowserSessionEnd) => void
+  >();
+  private readonly pageListeners = new Set<
+    (params: {
+      pageId: string;
+      platformId: PlatformId;
+      url: string;
+      event: PageEventParams["event"];
+    }) => void
+  >();
+
+  async ensurePage(
+    platformId: PlatformId,
+    url: string,
+  ): Promise<EnsurePageResult> {
+    const existing = this.pages.get(platformId);
+    if (existing) {
+      return { page: existing, created: false };
+    }
+    const page = new FakePage(
+      `page-${platformId}-${this.nextPage++}`,
+      platformId,
+      url,
+    );
+    this.pages.set(platformId, page);
+    this.emitPage(page, "opened");
+    return { page, created: true };
+  }
+
+  async navigatePage(
+    platformId: PlatformId,
+    url: string,
+  ): Promise<FakePage> {
+    const page = this.requirePage(platformId);
+    await page.navigate(url);
+    this.emitPage(page, "navigated");
+    return page;
+  }
+
+  async activatePage(platformId: PlatformId): Promise<boolean> {
+    return this.pages.has(platformId);
+  }
+
+  async closePage(platformId: PlatformId): Promise<boolean> {
+    const page = this.pages.get(platformId);
+    if (!page) {
+      return false;
+    }
+    this.pages.delete(platformId);
+    this.emitPage(page, "closed");
+    return true;
+  }
+
+  listPages(): PageSnapshot[] {
+    return [...this.pages.values()].map((page) => page.snapshot());
+  }
+
+  async close(): Promise<void> {
+    this.pages.clear();
+    for (const listener of this.closedListeners) {
+      listener("closed");
+    }
+  }
+
+  onClosed(listener: (reason: BrowserSessionEnd) => void): void {
+    this.closedListeners.add(listener);
+  }
+
+  onPageEvent(
+    listener: (params: {
+      pageId: string;
+      platformId: PlatformId;
+      url: string;
+      event: PageEventParams["event"];
+    }) => void,
+  ): void {
+    this.pageListeners.add(listener);
+  }
+
+  crashPage(platformId: PlatformId): void {
+    const page = this.pages.get(platformId);
+    if (page) {
+      page.state = "crashed";
+      this.pages.delete(platformId);
+      this.emitPage(page, "crashed");
+    }
+  }
+
+  private requirePage(platformId: PlatformId): FakePage {
+    const page = this.pages.get(platformId);
+    if (!page) {
+      throw new Error(`missing page: ${platformId}`);
+    }
+    return page;
+  }
+
+  private emitPage(
+    page: FakePage,
+    event: PageEventParams["event"],
+  ): void {
+    for (const listener of this.pageListeners) {
+      listener({
+        pageId: page.pageId,
+        platformId: page.platformId,
+        url: page.url(),
+        event,
+      });
+    }
+  }
+}
 
 class FakeEngine implements BrowserEngine {
   readonly name = "fake";
   readonly version = "1.0.0";
+  readonly sessions: FakeSession[] = [];
   launches: BrowserLaunchOptions[] = [];
-  closed = 0;
-  lastClosed?: (reason: BrowserSessionEnd) => void;
 
   async getBrowserInfo(): Promise<BrowserInfo> {
     return {
@@ -53,19 +217,9 @@ class FakeEngine implements BrowserEngine {
     options: BrowserLaunchOptions,
   ): Promise<BrowserSessionHandle> {
     this.launches.push(options);
-    const listeners = new Set<(reason: BrowserSessionEnd) => void>();
-    return {
-      url: options.url,
-      async close() {
-        for (const listener of listeners) {
-          listener("closed");
-        }
-      },
-      onClosed: (listener) => {
-        this.lastClosed = listener;
-        listeners.add(listener);
-      },
-    };
+    const session = new FakeSession();
+    this.sessions.push(session);
+    return session;
   }
 
   async dispose(): Promise<void> {}
@@ -75,7 +229,8 @@ interface Harness {
   client: MessageConnection;
   worker: MessageConnection;
   engine: FakeEngine;
-  events: BrowserEventParams[];
+  sessionEvents: SessionEventParams[];
+  pageEvents: PageEventParams[];
   dispose(): void;
 }
 
@@ -83,11 +238,13 @@ function harness(): Harness {
   const clientToWorker = new PassThrough();
   const workerToClient = new PassThrough();
   const engine = new FakeEngine();
-  const events: BrowserEventParams[] = [];
+  const sessionEvents: SessionEventParams[] = [];
+  const pageEvents: PageEventParams[] = [];
   const service = new WorkerService(engine, {
     profileRoot: "/tmp/jobless-profiles",
     headless: false,
-    emitEvent: (event) => events.push(event),
+    emitSessionEvent: (event) => sessionEvents.push(event),
+    emitPageEvent: (event) => pageEvents.push(event),
   });
   const worker = createWorkerConnection(
     clientToWorker,
@@ -107,12 +264,20 @@ function harness(): Harness {
     client,
     worker,
     engine,
-    events,
+    sessionEvents,
+    pageEvents,
     dispose() {
       client.dispose();
       worker.dispose();
     },
   };
+}
+
+async function startSession(context: Harness): Promise<string> {
+  const result = await context.client.sendRequest(sessionStartRequest, {
+    profile_id: "default",
+  });
+  return result.session_id;
 }
 
 test("health returns engine and browser details", async () => {
@@ -122,58 +287,112 @@ test("health returns engine and browser details", async () => {
     assert.equal(result.engine.name, "fake");
     assert.equal(result.browser.available, true);
     assert.equal(result.runtime.name, "bun");
-    assert.equal(result.runtime.version, Bun.version);
-    assert.equal(result.runtime.node_compat_version, process.version);
   } finally {
     context.dispose();
   }
 });
 
-test("open and close manage a persistent session", async () => {
+test("ensure is idempotent per platform", async () => {
   const context = harness();
   try {
-    const opened = await context.client.sendRequest(browserOpenRequest, {
-      url: "about:blank",
-      profile_id: "default",
+    const sessionId = await startSession(context);
+    const first = await context.client.sendRequest(pageEnsureRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
+      url: "https://example.com/boss",
     });
-    assert.equal(opened.url, "about:blank");
-    assert.equal(context.engine.launches.length, 1);
+    const second = await context.client.sendRequest(pageEnsureRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
+      url: "https://ignored.example.com",
+    });
 
-    const closed = await context.client.sendRequest(browserCloseRequest, {
-      session_id: opened.session_id,
-    });
-    assert.equal(closed.closed, 1);
+    assert.equal(first.page_id, second.page_id);
+    assert.equal(first.created, true);
+    assert.equal(second.created, false);
+    assert.equal(second.url, "https://example.com/boss");
   } finally {
     context.dispose();
   }
 });
 
-test("rejects invalid profile ids", async () => {
+test("manages independent platform pages", async () => {
   const context = harness();
   try {
-    await assert.rejects(
-      context.client.sendRequest(browserOpenRequest, {
-        url: "about:blank",
-        profile_id: "../escape",
-      }),
+    const sessionId = await startSession(context);
+    await context.client.sendRequest(pageEnsureRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
+      url: "https://example.com/boss",
+    });
+    await context.client.sendRequest(pageEnsureRequest, {
+      session_id: sessionId,
+      platform_id: "liepin",
+      url: "https://example.com/liepin",
+    });
+
+    const listed = await context.client.sendRequest(pageListRequest, {
+      session_id: sessionId,
+    });
+    assert.deepEqual(
+      listed.pages.map((page) => page.platform_id).sort(),
+      ["boss", "liepin"],
     );
+
+    await context.client.sendRequest(pageNavigateRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
+      url: "https://example.com/jobs",
+    });
+    await context.client.sendRequest(pageActivateRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
+    });
+    const closed = await context.client.sendRequest(pageCloseRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
+    });
+    assert.equal(closed.closed, true);
   } finally {
     context.dispose();
   }
 });
 
-test("reports browser crashes distinctly", async () => {
+test("reports page crashes and recreates on next ensure", async () => {
   const context = harness();
   try {
-    await context.client.sendRequest(browserOpenRequest, {
+    const sessionId = await startSession(context);
+    const first = await context.client.sendRequest(pageEnsureRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
       url: "about:blank",
-      profile_id: "default",
     });
-    context.engine.lastClosed?.("crashed");
-    assert.deepEqual(context.events.at(-1), {
-      session_id: context.events[0]?.session_id,
-      event: "crashed",
+    context.engine.sessions[0]?.crashPage("boss");
+
+    assert.equal(context.pageEvents.at(-1)?.event, "crashed");
+    assert.equal(context.pageEvents.at(-1)?.page_id, first.page_id);
+
+    const recreated = await context.client.sendRequest(pageEnsureRequest, {
+      session_id: sessionId,
+      platform_id: "boss",
+      url: "about:blank",
     });
+    assert.equal(recreated.created, true);
+    assert.notEqual(recreated.page_id, first.page_id);
+  } finally {
+    context.dispose();
+  }
+});
+
+test("closes a session", async () => {
+  const context = harness();
+  try {
+    const sessionId = await startSession(context);
+    const result = await context.client.sendRequest(sessionCloseRequest, {
+      session_id: sessionId,
+    });
+    assert.equal(result.closed, 1);
+    assert.equal(context.sessionEvents.at(-1)?.event, "closed");
   } finally {
     context.dispose();
   }

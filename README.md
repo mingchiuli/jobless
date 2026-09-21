@@ -14,7 +14,7 @@ GPUI Kit desktop app (Rust)
 Application services (RuntimeService)
         │
         ▼
-Browser adapter + SQLite storage + configuration
+Browser adapter + platform catalog + SQLite storage + configuration
         │ Content-Length JSON-RPC over stdin/stdout
         ▼
 browser-worker (Bun + TypeScript)
@@ -27,6 +27,7 @@ Important properties:
 
 - Rust owns configuration, SQLite, application state and worker lifecycle.
 - Application services own use-case orchestration and keep GPUI views thin.
+- One Chromium session hosts one main page per configured platform.
 - `browser-worker` is the only component that knows about Patchright.
 - Bun and the Patchright browser are bundled into `runtime/`.
 - Browser profiles are isolated per account/profile and remain outside SQLite.

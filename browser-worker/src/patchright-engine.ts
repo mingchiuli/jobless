@@ -8,9 +8,9 @@ import type {
   BrowserEngine,
   BrowserLaunchOptions,
   BrowserSessionHandle,
-  BrowserSessionEnd,
 } from "./engine.ts";
 import type { BrowserInfo } from "./generated/protocol.ts";
+import { PatchrightSession } from "./patchright-session.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -62,48 +62,7 @@ export class PatchrightEngine implements BrowserEngine {
       headless: options.headless,
       viewport: null,
     });
-
-    const page = context.pages()[0] ?? (await context.newPage());
-    if (options.url !== "about:blank") {
-      await page.goto(options.url, {
-        waitUntil: "domcontentloaded",
-        timeout: 30_000,
-      });
-    }
-
-    const listeners = new Set<(reason: BrowserSessionEnd) => void>();
-    let ended = false;
-    let crashed = false;
-    const finish = (reason: BrowserSessionEnd) => {
-      if (ended) {
-        return;
-      }
-      ended = true;
-      for (const listener of listeners) {
-        listener(reason);
-      }
-    };
-
-    page.on("crash", () => {
-      crashed = true;
-      finish("crashed");
-      void context.close().catch(() => {});
-    });
-    context.on("close", () => {
-      finish(crashed ? "crashed" : "closed");
-    });
-
-    return {
-      url: page.url() || options.url,
-      async close() {
-        if (!ended) {
-          await context.close();
-        }
-      },
-      onClosed(listener: (reason: BrowserSessionEnd) => void) {
-        listeners.add(listener);
-      },
-    };
+    return new PatchrightSession(context);
   }
 
   async dispose(): Promise<void> {

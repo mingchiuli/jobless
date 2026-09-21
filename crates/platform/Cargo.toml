@@ -1,5 +1,5 @@
 [package]
-name = "jobless-application"
+name = "jobless-platform"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,7 +7,6 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-jobless-browser = { path = "../browser" }
-jobless-config = { path = "../config" }
-jobless-platform = { path = "../platform" }
+serde.workspace = true
 thiserror.workspace = true
+ts-rs.workspace = true

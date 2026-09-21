@@ -18,6 +18,13 @@ locale = "zh-CN"
 engine = "patchright"
 headless = false
 smoke_url = "about:blank"
+profile_id = "default"
+
+[platforms.boss]
+enabled = true
+display_name = "BOSS直聘"
+home_url = "https://www.zhipin.com"
+sort_order = 10
 
 [rpc]
 request_timeout_ms = 10000

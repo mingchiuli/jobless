@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use jobless_application::RuntimeService;
 use jobless_config::LoadedConfig;
+use jobless_platform::PlatformId;
 
 pub fn run(loaded: LoadedConfig) -> anyhow::Result<()> {
     let mut runtime = RuntimeService::from_config(&loaded.value, &loaded.paths)?;
@@ -25,9 +26,9 @@ pub fn run(loaded: LoadedConfig) -> anyhow::Result<()> {
         anyhow::bail!("the bundled Patchright browser is not installed");
     }
 
-    runtime.open("about:blank", "smoke")?;
+    runtime.ensure_platform_page(&PlatformId::compatibility(), "about:blank")?;
     thread::sleep(Duration::from_millis(500));
-    runtime.close()?;
+    runtime.close_session(None)?;
     runtime.stop()?;
     Ok(())
 }

@@ -10,15 +10,24 @@ import {
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
 
+import type {
+  PageEventParams,
+  SessionEventParams,
+} from "./generated/protocol.ts";
 import {
-  browserCloseRequest,
-  browserEventNotification,
-  browserOpenRequest,
+  pageActivateRequest,
+  pageCloseRequest,
+  pageEnsureRequest,
+  pageEventNotification,
+  pageListRequest,
+  pageNavigateRequest,
   runtimeHealthRequest,
   runtimeReadyNotification,
   runtimeShutdownRequest,
+  sessionCloseRequest,
+  sessionEventNotification,
+  sessionStartRequest,
 } from "./rpc.ts";
-import type { BrowserEventParams } from "./generated/protocol.ts";
 import type { WorkerService } from "./worker-service.ts";
 
 export const stderrLogger: Logger = {
@@ -49,10 +58,21 @@ export function createWorkerConnection(
   );
 
   connection.onRequest(runtimeHealthRequest, () => service.health());
-  connection.onRequest(browserOpenRequest, (params, token) =>
-    service.open(params, token),
+  connection.onRequest(sessionStartRequest, (params, token) =>
+    service.startSession(params, token),
   );
-  connection.onRequest(browserCloseRequest, (params) => service.close(params));
+  connection.onRequest(sessionCloseRequest, (params) =>
+    service.closeSession(params),
+  );
+  connection.onRequest(pageEnsureRequest, (params) => service.ensurePage(params));
+  connection.onRequest(pageNavigateRequest, (params) =>
+    service.navigatePage(params),
+  );
+  connection.onRequest(pageActivateRequest, (params) =>
+    service.activatePage(params),
+  );
+  connection.onRequest(pageCloseRequest, (params) => service.closePage(params));
+  connection.onRequest(pageListRequest, (params) => service.listPages(params));
   connection.onRequest(runtimeShutdownRequest, async () => {
     const result = await service.shutdown();
     setImmediate(() => {
@@ -69,9 +89,16 @@ export function sendRuntimeReady(connection: MessageConnection): void {
   connection.sendNotification(runtimeReadyNotification, {});
 }
 
-export function sendBrowserEvent(
+export function sendSessionEvent(
   connection: MessageConnection,
-  event: BrowserEventParams,
+  event: SessionEventParams,
 ): void {
-  connection.sendNotification(browserEventNotification, event);
+  connection.sendNotification(sessionEventNotification, event);
+}
+
+export function sendPageEvent(
+  connection: MessageConnection,
+  event: PageEventParams,
+): void {
+  connection.sendNotification(pageEventNotification, event);
 }
